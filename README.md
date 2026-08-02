@@ -117,7 +117,7 @@ Results from the v2 training run. Best checkpoint obtained at epoch 55.
 
 Larva detection achieves the strongest performance (mAP50 = 0.726), consistent with its larger visual signature and stronger representation in the training data. Egg and frass remain areas for improvement in subsequent versions.
 
-Training plots, confusion matrix, PR curves, and model weights are available on [Hugging Face](https://huggingface.co/ndunge23/sambaguard-faw-detector).
+Training plots, confusion matrix, PR curves, and model weights are available on [Hugging Face](https://huggingface.co/ndunge23/SambaGuard-v2/tree/main).
 
 ### Experiment Log
 
@@ -125,8 +125,6 @@ Training plots, confusion matrix, PR curves, and model weights are available on 
 |---|---|---|---|---|
 | v1 | Baseline | 50 | 0.368 | Complete |
 | v2 | Clean dataset | 100 (best at 55) | 0.347 | Complete |
-| v3 | Stronger augmentation | 100 | — | Planned |
-| v4 | Image size 960 | 100 | — | Planned |
 
 ---
 
@@ -200,7 +198,6 @@ Full setup walkthrough: [docs/pi-deployment-guide.md](docs/pi-deployment-guide.m
 - Swahili-language LLM advisory layer (UlizaLlama or equivalent quantized model)
 - GSM module integration for SMS delivery to farmers
 - Model quantization for further edge optimization
-- v3 training with stronger augmentation targeting egg and frass classes
 - Field validation with smallholder farmers in Kenya
 - Expansion to additional maize pest and disease classes
 
@@ -210,7 +207,7 @@ Full setup walkthrough: [docs/pi-deployment-guide.md](docs/pi-deployment-guide.m
 
 Trained weights, evaluation metrics, training plots, and confusion matrix are available at:
 
-[https://huggingface.co/ndunge23/sambaguard-faw-detector](https://huggingface.co/ndunge23/sambaguard-faw-detector)
+[https://huggingface.co/ndunge23/SambaGuard-v2](https://huggingface.co/ndunge23/SambaGuard-v2/tree/main)
 
 ---
 
