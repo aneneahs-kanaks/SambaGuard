@@ -7,14 +7,14 @@ from huggingface_hub import hf_hub_download
 import os
 import time
 
-# ── Page config ──────────────────────────────────────────────
+# Page config 
 st.set_page_config(
     page_title="SambaGuard AI",
     page_icon="🌽",
     layout="wide",
 )
 
-# ── Constants ─────────────────────────────────────────────────
+# Constants
 CLASS_NAMES = [
     "fall armyworm egg",
     "fall armyworm frass",
@@ -34,7 +34,7 @@ IOU_THRESHOLD = 0.45
 HF_REPO_ID    = "ndunge23/SambaGuard-v2"
 MODEL_FILE    = "weights/best.onnx"
 
-# ── Load model (cached so it only downloads once) ─────────────
+# Load model (cached so it only downloads once) 
 @st.cache_resource
 def load_model():
     with st.spinner("Loading SambaGuard model from Hugging Face..."):
@@ -42,7 +42,7 @@ def load_model():
         session = ort.InferenceSession(model_path)
     return session
 
-# ── Inference ─────────────────────────────────────────────────
+#  Inference
 def parse_detections(output, orig_h, orig_w, conf_threshold):
     predictions = output[0].squeeze(0).T
     boxes        = predictions[:, :4]
@@ -124,7 +124,7 @@ def run_inference(session, image_pil, conf_threshold):
     return result_img, detections, elapsed
 
 
-# ── Sidebar ───────────────────────────────────────────────────
+# Sidebar 
 with st.sidebar:
     st.title("SambaGuard AI")
     st.caption("Edge AI for Fall Armyworm Detection")
@@ -165,7 +165,7 @@ with st.sidebar:
         "[GitHub Repository](https://github.com/aneneahs-kanaks/SambaGuard)"
     )
 
-# ── Main ──────────────────────────────────────────────────────
+# Main
 st.title("SambaGuard AI — Fall Armyworm Detector")
 st.markdown(
     "Upload a maize field image or use your camera to detect "
@@ -175,10 +175,10 @@ st.markdown(
 # load model
 session = load_model()
 
-# ── Tabs ──────────────────────────────────────────────────────
+# Tabs 
 tab_upload, tab_camera = st.tabs(["Upload Image", "Camera Capture"])
 
-# ── Tab 1: Upload ─────────────────────────────────────────────
+# Tab 1: Upload
 with tab_upload:
     uploaded_file = st.file_uploader(
         "Choose a maize field image",
@@ -229,7 +229,7 @@ with tab_upload:
             st.info("No FAW detected at this confidence threshold. "
                     "Try lowering the threshold in the sidebar.")
 
-# ── Tab 2: Camera ─────────────────────────────────────────────
+# Tab 2: Camera
 with tab_camera:
     st.markdown(
         "Point your camera at a maize plant and take a photo. "
