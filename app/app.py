@@ -38,7 +38,7 @@ MODEL_FILE    = "weights/best.onnx"
 @st.cache_resource
 def load_model():
     with st.spinner("Loading SambaGuard model from Hugging Face..."):
-        model_path = hf_hub_download(repo_id=HF_REPO_ID, filename=MODEL_FILE)
+        model_path = hf_hub_download(repo_id=HF_REPO_ID,repo_type="model",filename=MODEL_FILE)
         session = ort.InferenceSession(model_path)
     return session
 
