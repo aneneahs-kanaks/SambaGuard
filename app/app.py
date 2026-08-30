@@ -236,88 +236,112 @@ with tab_camera:
         "The model will detect any Fall Armyworm signs present."
     )
 
-    # Camera is closed by default
+    # initialise session state
     if "camera_open" not in st.session_state:
         st.session_state.camera_open = False
+    if "detection_history" not in st.session_state:
+        st.session_state.detection_history = []
 
-    # Show Open Camera button when camera is closed
+    # show Open Camera button only when camera is closed
     if not st.session_state.camera_open:
-        if st.button("📷 Open Camera"):
+        if st.button("Open Camera", type="primary"):
             st.session_state.camera_open = True
             st.rerun()
 
-    # Show camera only after user clicks Open Camera
+    # show camera only when open
     if st.session_state.camera_open:
-
         camera_image = st.camera_input("Take a photo")
 
         if camera_image is not None:
+            # turn camera off immediately
+            st.session_state.camera_open = False
+
             image = Image.open(camera_image)
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.subheader("Captured image")
-                st.image(image, use_container_width=True)
 
             with st.spinner("Running detection..."):
                 result_img, detections, elapsed = run_inference(
                     session, image, conf_threshold
                 )
 
-            with col2:
-                st.subheader("Detection result")
-                st.image(result_img, use_container_width=True)
+            # save to history
+            st.session_state.detection_history.append({
+                "timestamp" : time.strftime("%H:%M:%S"),
+                "image"     : image,
+                "result"    : result_img,
+                "detections": detections,
+                "elapsed"   : elapsed,
+                "threshold" : conf_threshold,
+            })
 
-            # Results summary
-            st.divider()
-            st.subheader("Detection summary")
+            st.rerun()
 
-            col_a, col_b, col_c = st.columns(3)
+    #  show latest result 
+    if st.session_state.detection_history:
+        latest = st.session_state.detection_history[-1]
 
-            col_a.metric(
-                "Objects detected",
-                len(detections)
-            )
+        st.divider()
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Captured image")
+            st.image(latest["image"], use_container_width=True)
+        with col2:
+            st.subheader("Detection result")
+            st.image(latest["result"], use_container_width=True)
 
-            col_b.metric(
-                "Inference time",
-                f"{elapsed*1000:.0f} ms"
-            )
+        st.subheader("Detection summary")
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Objects detected", len(latest["detections"]))
+        col_b.metric("Inference time", f"{latest['elapsed']*1000:.0f} ms")
+        col_c.metric("Confidence threshold", f"{latest['threshold']:.0%}")
 
-            col_c.metric(
-                "Confidence threshold",
-                f"{conf_threshold:.0%}"
-            )
-
-            if detections:
-                st.markdown("**Detected objects:**")
-
-                for det in detections:
-
-                    color = CLASS_COLORS.get(
-                        det["class_name"],
-                        (0, 255, 0)
-                    )
-
-                    hex_color = "#{:02x}{:02x}{:02x}".format(*color)
-
-                    st.markdown(
-                        f'<span style="background:{hex_color};'
-                        f'padding:2px 8px;'
-                        f'border-radius:4px;'
-                        f'color:white;'
-                        f'font-size:13px;">'
-                        f'{det["class_name"]}</span> '
-                        f'— confidence: '
-                        f'**{det["confidence"]:.3f}**',
-                        unsafe_allow_html=True,
-                    )
-
-                    st.write("")
-
-            else:
-                st.info(
-                    "No FAW detected at this confidence threshold. "
-                    "Try lowering the threshold in the sidebar."
+        if latest["detections"]:
+            st.markdown("**Detected objects:**")
+            for det in latest["detections"]:
+                color     = CLASS_COLORS.get(det["class_name"], (0, 255, 0))
+                hex_color = "#{:02x}{:02x}{:02x}".format(*color)
+                st.markdown(
+                    f'<span style="background:{hex_color};padding:2px 8px;'
+                    f'border-radius:4px;color:white;font-size:13px;">'
+                    f'{det["class_name"]}</span> '
+                    f'— confidence: **{det["confidence"]:.3f}**',
+                    unsafe_allow_html=True,
                 )
+                st.write("")
+        else:
+            st.info("No FAW detected. Try lowering the confidence threshold.")
+
+    # History section 
+    if len(st.session_state.detection_history) > 1:
+        st.divider()
+        st.subheader(f"Session History ({len(st.session_state.detection_history)} captures)")
+
+        for i, record in enumerate(reversed(st.session_state.detection_history[:-1])):
+            with st.expander(
+                f"Capture {len(st.session_state.detection_history) - 1 - i} "
+                f"— {record['timestamp']} "
+                f"— {len(record['detections'])} detection(s)"
+            ):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.image(record["image"], use_container_width=True)
+                with col2:
+                    st.image(record["result"], use_container_width=True)
+
+                if record["detections"]:
+                    for det in record["detections"]:
+                        color     = CLASS_COLORS.get(det["class_name"], (0, 255, 0))
+                        hex_color = "#{:02x}{:02x}{:02x}".format(*color)
+                        st.markdown(
+                            f'<span style="background:{hex_color};padding:2px 8px;'
+                            f'border-radius:4px;color:white;font-size:13px;">'
+                            f'{det["class_name"]}</span> '
+                            f'— confidence: **{det["confidence"]:.3f}**',
+                            unsafe_allow_html=True,
+                        )
+                        st.write("")
+                else:
+                    st.info("No FAW detected in this capture.")
+
+        if st.button("Clear history"):
+            st.session_state.detection_history = []
+            st.rerun()
