@@ -236,47 +236,88 @@ with tab_camera:
         "The model will detect any Fall Armyworm signs present."
     )
 
-    camera_image = st.camera_input("Take a photo")
+    # Camera is closed by default
+    if "camera_open" not in st.session_state:
+        st.session_state.camera_open = False
 
-    if camera_image is not None:
-        image = Image.open(camera_image)
+    # Show Open Camera button when camera is closed
+    if not st.session_state.camera_open:
+        if st.button("📷 Open Camera"):
+            st.session_state.camera_open = True
+            st.rerun()
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("Captured image")
-            st.image(image, use_container_width=True)
+    # Show camera only after user clicks Open Camera
+    if st.session_state.camera_open:
 
-        with st.spinner("Running detection..."):
-            result_img, detections, elapsed = run_inference(
-                session, image, conf_threshold
+        camera_image = st.camera_input("Take a photo")
+
+        if camera_image is not None:
+            image = Image.open(camera_image)
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Captured image")
+                st.image(image, use_container_width=True)
+
+            with st.spinner("Running detection..."):
+                result_img, detections, elapsed = run_inference(
+                    session, image, conf_threshold
+                )
+
+            with col2:
+                st.subheader("Detection result")
+                st.image(result_img, use_container_width=True)
+
+            # Results summary
+            st.divider()
+            st.subheader("Detection summary")
+
+            col_a, col_b, col_c = st.columns(3)
+
+            col_a.metric(
+                "Objects detected",
+                len(detections)
             )
 
-        with col2:
-            st.subheader("Detection result")
-            st.image(result_img, use_container_width=True)
+            col_b.metric(
+                "Inference time",
+                f"{elapsed*1000:.0f} ms"
+            )
 
-        # Results summary
-        st.divider()
-        st.subheader("Detection summary")
+            col_c.metric(
+                "Confidence threshold",
+                f"{conf_threshold:.0%}"
+            )
 
-        col_a, col_b, col_c = st.columns(3)
-        col_a.metric("Objects detected", len(detections))
-        col_b.metric("Inference time", f"{elapsed*1000:.0f} ms")
-        col_c.metric("Confidence threshold", f"{conf_threshold:.0%}")
+            if detections:
+                st.markdown("**Detected objects:**")
 
-        if detections:
-            st.markdown("**Detected objects:**")
-            for det in detections:
-                color = CLASS_COLORS.get(det["class_name"], (0,255,0))
-                hex_color = "#{:02x}{:02x}{:02x}".format(*color)
-                st.markdown(
-                    f'<span style="background:{hex_color};padding:2px 8px;'
-                    f'border-radius:4px;color:white;font-size:13px;">'
-                    f'{det["class_name"]}</span> '
-                    f'— confidence: **{det["confidence"]:.3f}**',
-                    unsafe_allow_html=True,
+                for det in detections:
+
+                    color = CLASS_COLORS.get(
+                        det["class_name"],
+                        (0, 255, 0)
+                    )
+
+                    hex_color = "#{:02x}{:02x}{:02x}".format(*color)
+
+                    st.markdown(
+                        f'<span style="background:{hex_color};'
+                        f'padding:2px 8px;'
+                        f'border-radius:4px;'
+                        f'color:white;'
+                        f'font-size:13px;">'
+                        f'{det["class_name"]}</span> '
+                        f'— confidence: '
+                        f'**{det["confidence"]:.3f}**',
+                        unsafe_allow_html=True,
+                    )
+
+                    st.write("")
+
+            else:
+                st.info(
+                    "No FAW detected at this confidence threshold. "
+                    "Try lowering the threshold in the sidebar."
                 )
-                st.write("")
-        else:
-            st.info("No FAW detected at this confidence threshold. "
-                    "Try lowering the threshold in the sidebar.")
