@@ -175,20 +175,25 @@ st.markdown(
 # load model
 session = load_model()
 
+# initialise shared session state
+if "detection_history" not in st.session_state:
+    st.session_state.detection_history = []
+if "camera_open" not in st.session_state:
+    st.session_state.camera_open = False
+
 # Tabs 
 tab_upload, tab_camera = st.tabs(["Upload Image", "Camera Capture"])
 
 # Tab 1: Upload
+
 with tab_upload:
     uploaded_file = st.file_uploader(
         "Choose a maize field image",
         type=["jpg", "jpeg", "png"],
-        help="Supported formats: JPG, JPEG, PNG"
     )
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Original image")
@@ -203,10 +208,18 @@ with tab_upload:
             st.subheader("Detection result")
             st.image(result_img, use_container_width=True)
 
-        # Results summary
-        st.divider()
-        st.subheader("Detection summary")
+        # save to shared history
+        st.session_state.detection_history.append({
+            "timestamp" : time.strftime("%H:%M:%S"),
+            "source"    : "Upload",
+            "image"     : image,
+            "result"    : result_img,
+            "detections": detections,
+            "elapsed"   : elapsed,
+            "threshold" : conf_threshold,
+        })
 
+        st.subheader("Detection summary")
         col_a, col_b, col_c = st.columns(3)
         col_a.metric("Objects detected", len(detections))
         col_b.metric("Inference time", f"{elapsed*1000:.0f} ms")
@@ -215,7 +228,7 @@ with tab_upload:
         if detections:
             st.markdown("**Detected objects:**")
             for det in detections:
-                color = CLASS_COLORS.get(det["class_name"], (0,255,0))
+                color     = CLASS_COLORS.get(det["class_name"], (0, 255, 0))
                 hex_color = "#{:02x}{:02x}{:02x}".format(*color)
                 st.markdown(
                     f'<span style="background:{hex_color};padding:2px 8px;'
@@ -226,36 +239,26 @@ with tab_upload:
                 )
                 st.write("")
         else:
-            st.info("No FAW detected at this confidence threshold. "
-                    "Try lowering the threshold in the sidebar.")
-
+            st.info("No FAW detected. Try lowering the confidence threshold.")
+            
 # Tab 2: Camera
+
 with tab_camera:
     st.markdown(
         "Point your camera at a maize plant and take a photo. "
         "The model will detect any Fall Armyworm signs present."
     )
 
-    # initialise session state
-    if "camera_open" not in st.session_state:
-        st.session_state.camera_open = False
-    if "detection_history" not in st.session_state:
-        st.session_state.detection_history = []
-
-    # show Open Camera button only when camera is closed
     if not st.session_state.camera_open:
         if st.button("Open Camera", type="primary"):
             st.session_state.camera_open = True
             st.rerun()
 
-    # show camera only when open
     if st.session_state.camera_open:
         camera_image = st.camera_input("Take a photo")
 
         if camera_image is not None:
-            # turn camera off immediately
             st.session_state.camera_open = False
-
             image = Image.open(camera_image)
 
             with st.spinner("Running detection..."):
@@ -263,9 +266,10 @@ with tab_camera:
                     session, image, conf_threshold
                 )
 
-            # save to history
+            # save to shared history
             st.session_state.detection_history.append({
                 "timestamp" : time.strftime("%H:%M:%S"),
+                "source"    : "Camera",
                 "image"     : image,
                 "result"    : result_img,
                 "detections": detections,
@@ -275,10 +279,13 @@ with tab_camera:
 
             st.rerun()
 
-    #  show latest result 
-    if st.session_state.detection_history:
-        latest = st.session_state.detection_history[-1]
-
+    # show latest camera result
+    camera_records = [
+        r for r in st.session_state.detection_history
+        if r["source"] == "Camera"
+    ]
+    if camera_records:
+        latest = camera_records[-1]
         st.divider()
         col1, col2 = st.columns(2)
         with col1:
@@ -310,38 +317,43 @@ with tab_camera:
         else:
             st.info("No FAW detected. Try lowering the confidence threshold.")
 
-    # History section 
-    if len(st.session_state.detection_history) > 1:
-        st.divider()
-        st.subheader(f"Session History ({len(st.session_state.detection_history)} captures)")
+#  Shared History (outside both tabs) 
+if st.session_state.detection_history:
+    st.divider()
+    st.subheader(f"Session History — {len(st.session_state.detection_history)} inference(s)")
 
-        for i, record in enumerate(reversed(st.session_state.detection_history[:-1])):
-            with st.expander(
-                f"Capture {len(st.session_state.detection_history) - 1 - i} "
-                f"— {record['timestamp']} "
-                f"— {len(record['detections'])} detection(s)"
-            ):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.image(record["image"], use_container_width=True)
-                with col2:
-                    st.image(record["result"], use_container_width=True)
+    for i, record in enumerate(reversed(st.session_state.detection_history)):
+        with st.expander(
+            f"#{len(st.session_state.detection_history) - i} "
+            f"— {record['source']} "
+            f"— {record['timestamp']} "
+            f"— {len(record['detections'])} detection(s)"
+        ):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.image(record["image"], use_container_width=True)
+            with col2:
+                st.image(record["result"], use_container_width=True)
 
-                if record["detections"]:
-                    for det in record["detections"]:
-                        color     = CLASS_COLORS.get(det["class_name"], (0, 255, 0))
-                        hex_color = "#{:02x}{:02x}{:02x}".format(*color)
-                        st.markdown(
-                            f'<span style="background:{hex_color};padding:2px 8px;'
-                            f'border-radius:4px;color:white;font-size:13px;">'
-                            f'{det["class_name"]}</span> '
-                            f'— confidence: **{det["confidence"]:.3f}**',
-                            unsafe_allow_html=True,
-                        )
-                        st.write("")
-                else:
-                    st.info("No FAW detected in this capture.")
+            col_a, col_b = st.columns(2)
+            col_a.metric("Objects detected", len(record["detections"]))
+            col_b.metric("Inference time", f"{record['elapsed']*1000:.0f} ms")
 
-        if st.button("Clear history"):
-            st.session_state.detection_history = []
-            st.rerun()
+            if record["detections"]:
+                for det in record["detections"]:
+                    color     = CLASS_COLORS.get(det["class_name"], (0, 255, 0))
+                    hex_color = "#{:02x}{:02x}{:02x}".format(*color)
+                    st.markdown(
+                        f'<span style="background:{hex_color};padding:2px 8px;'
+                        f'border-radius:4px;color:white;font-size:13px;">'
+                        f'{det["class_name"]}</span> '
+                        f'— confidence: **{det["confidence"]:.3f}**',
+                        unsafe_allow_html=True,
+                    )
+                    st.write("")
+            else:
+                st.info("No FAW detected in this inference.")
+
+    if st.button("Clear history"):
+        st.session_state.detection_history = []
+        st.rerun()
